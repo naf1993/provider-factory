@@ -1,114 +1,336 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Provider Data Factory
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+NestJS-based data factory that reads raw provider data from MongoDB, processes it asynchronously through BullMQ/Redis, and writes normalized domain data into a separate MongoDB database.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+Current provider: **Talabat**
 
-## Description
+## Tech Stack
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- NestJS
+- TypeScript
+- MongoDB / Mongoose
+- BullMQ / Redis
+- Zod
+- Docker Compose
+- Vitest
 
-## Project setup
+## Project Flow
 
-```bash
-$ npm install
+```text
+JSON Source Files
+      |
+      v
+ Seed Script
+      |
+      v
+ provider_raw
+      |
+ MongoDB Cursor
+      |
+      v
+FactoryDispatcher
+      |
+      v
+ BullMQ / Redis
+      |
+      v
+FactoryProcessor
+      |
+      v
+ TalabatAdapter
+      |
+Validate / Normalize / Map / Dedupe
+      |
+      v
+ Repositories
+      |
+      v
+provider_domain
 ```
 
-## Compile and run the project
+## Databases
 
-```bash
-# development
-$ npm run start
+### Raw Database
 
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+```text
+provider_raw
 ```
 
-## Run tests
+Collections:
 
-```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+```text
+locations
+restaurants
+menus
 ```
 
-## Deployment
+The factory treats raw data as read-only during processing.
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+### Domain Database
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+```text
+provider_domain
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Collections:
 
-## Observability
+```text
+locations
+restaurants
+restaurant_locations
+menu_categories
+menu_items
+runs
+quarantine
+```
 
-In production applications, observability is essential for understanding how your system behaves, detecting issues early, and maintaining reliable performance.
+## Environment Variables
 
-[NestJS Observe](https://observe.nestjs.com) automatically instruments your NestJS application, giving you deep visibility into your system with minimal setup:
+Create `.env` from `.env.example`.
 
-- **Distributed tracing:** Follow requests across services and understand how they flow through your system.
-- **Waterfall analysis:** Visualize request execution and identify slow operations, bottlenecks, and unexpected delays.
-- **Performance analysis:** Analyze application performance in real time and quickly pinpoint areas that need optimization.
-- **Metrics:** Track key application and infrastructure metrics to understand system health and performance trends.
-- **Logging:** Centralize and correlate logs with traces and other telemetry to make debugging easier.
-- **Error tracking:** Detect errors quickly and investigate their root causes with the surrounding context.
-- **SLA monitoring:** Track service-level objectives and identify when your application is approaching or exceeding defined thresholds.
-- **Alarms and alerts:** Set up alerts for critical errors, performance degradation, SLA violations, and other anomalies so your team can react quickly.
+Example for local development:
 
-## Resources
+```env
+NODE_ENV=development
+PORT=3000
 
-Check out a few resources that may come in handy when working with NestJS:
+RAW_MONGODB_URI=mongodb://localhost:27017/provider_raw
+DOMAIN_MONGODB_URI=mongodb://localhost:27017/provider_domain
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Auto-instrument your application with [NestJS Observer](https://observer.nestjs.com). Distributed tracing, metrics, and logging made easy. Error tracking and performance monitoring for your NestJS applications.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+REDIS_HOST=localhost
+REDIS_PORT=6379
 
-## Support
+FACTORY_BATCH_SIZE=25
+FACTORY_CONCURRENCY=5
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## Run Locally
 
-## Stay in touch
+Start MongoDB and Redis:
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+docker compose up -d mongo redis
+```
 
-## License
+Seed raw data:
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+```bash
+npm run seed
+```
+
+Start the NestJS application:
+
+```bash
+npm run start:dev
+```
+
+Check health:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Start a factory run:
+
+```bash
+curl -X POST http://localhost:3000/runs
+```
+
+Example response:
+
+```json
+{
+  "runId": "your-run-id",
+  "status": "RUNNING",
+  "jobsQueued": 24
+}
+```
+
+Check run status:
+
+```bash
+curl http://localhost:3000/runs/YOUR_RUN_ID
+```
+
+Check quarantined errors:
+
+```bash
+curl "http://localhost:3000/runs/YOUR_RUN_ID/errors?page=1&limit=10"
+```
+
+## Run With Docker Compose
+
+Build and start all services:
+
+```bash
+docker compose up --build -d
+```
+
+Seed the raw database:
+
+```bash
+docker compose --profile tools run --rm seed
+```
+
+Check health:
+
+```bash
+curl http://localhost:3000/health
+```
+
+Trigger a run:
+
+```bash
+curl -X POST http://localhost:3000/runs
+```
+
+View logs:
+
+```bash
+docker compose logs -f app
+```
+
+## API
+
+```text
+POST /runs
+GET /runs/:id
+GET /runs/:id/errors
+GET /health
+```
+
+### POST /runs
+
+Starts an asynchronous provider processing run.
+
+### GET /runs/:id
+
+Returns:
+
+```text
+status
+expected jobs
+completed jobs
+failed jobs
+global counters
+per-stage counters
+sample errors
+duration
+```
+
+### GET /runs/:id/errors
+
+Returns paginated quarantine records.
+
+### GET /health
+
+Checks:
+
+```text
+raw MongoDB
+domain MongoDB
+Redis
+```
+
+## Processing Behavior
+
+Each source document follows:
+
+```text
+validate
+   ↓
+normalize
+   ↓
+map
+   ↓
+deduplicate
+   ↓
+upsert
+```
+
+Invalid provider documents are quarantined and processing continues.
+
+Infrastructure failures are retried through BullMQ with exponential backoff.
+
+After retry exhaustion, failed jobs are sent to the dead-letter queue.
+
+## Idempotency
+
+Normalized collections use deterministic natural keys and MongoDB upserts.
+
+Examples:
+
+```text
+Location
+(provider, providerLocationId)
+
+Restaurant
+(provider, providerRestaurantId)
+
+Menu Item
+(provider, providerRestaurantId, providerItemId)
+```
+
+Running the factory multiple times does not create duplicate normalized entities.
+
+## Testing
+
+Run all tests:
+
+```bash
+npm test
+```
+
+Run tests in watch mode:
+
+```bash
+npm run test:watch
+```
+
+Tests cover:
+
+- Talabat URL parsing
+- provider schema validation
+- nullable fields
+- numeric normalization
+- semantic provider errors
+- deduplication
+- MongoDB upserts
+- idempotency
+- provider transformation to persisted domain data
+
+## Source Data Notes
+
+Important observations from the source data:
+
+- numeric fields can arrive as strings
+- restaurants can appear in multiple locations
+- `outletCode` is used as the menu restaurant identifier
+- provider responses can contain semantic errors even when structurally valid
+- repeated entities are handled through deduplication and deterministic upserts
+
+More architecture details are available in:
+
+```text
+ARCHITECTURE.md
+```
+
+## Known Limitations
+
+- the worker currently depends directly on `TalabatAdapter`
+- run counters are not fully retry-idempotent after partial batch failure
+- `written` represents write/upsert attempts, not final unique document count
+- full Redis + BullMQ end-to-end integration testing could be expanded
+
+## What I Would Improve With More Time
+
+- introduce a generic provider adapter registry to support additional providers
+- make run counters fully retry-idempotent
+- expose inserted / modified / matched / upserted MongoDB metrics separately
+- add a full Testcontainers-based MongoDB + Redis + BullMQ integration test
+- add structured logging, metrics, and distributed tracing
+- add per-job checkpoints for stronger resumability after worker crashes
+- add graceful shutdown so active jobs finish safely during deployment
+- add queue monitoring and alerting for failed jobs and DLQ growth
+- add CI/CD checks for linting, tests, build, and Docker image validation
+- add retention/cleanup policies for old run records and quarantine data
