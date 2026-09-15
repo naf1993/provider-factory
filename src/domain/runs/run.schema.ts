@@ -1,11 +1,17 @@
 // src/domain/runs/run.schema.ts
 
-import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import {
+  Prop,
+  Schema,
+  SchemaFactory,
+} from '@nestjs/mongoose';
 
-import type { HydratedDocument } from 'mongoose';
+import type {
+  HydratedDocument,
+} from 'mongoose';
 
-export type RunDocument = HydratedDocument<Run>;
-
+export type RunDocument =
+  HydratedDocument<Run>;
 
 export enum RunStatus {
   PENDING = 'PENDING',
@@ -15,6 +21,81 @@ export enum RunStatus {
     'COMPLETED_WITH_ERRORS',
   FAILED = 'FAILED',
 }
+
+// ============================================
+// COUNTERS
+// ============================================
+
+@Schema({
+  _id: false,
+})
+export class RunCounters {
+  @Prop({
+    default: 0,
+  })
+  read: number;
+
+  @Prop({
+    default: 0,
+  })
+  transformed: number;
+
+  @Prop({
+    default: 0,
+  })
+  written: number;
+
+  @Prop({
+    default: 0,
+  })
+  skipped: number;
+
+  @Prop({
+    default: 0,
+  })
+  failed: number;
+}
+
+export const RunCountersSchema =
+  SchemaFactory.createForClass(
+    RunCounters,
+  );
+
+// ============================================
+// PER-STAGE COUNTERS
+// ============================================
+
+@Schema({
+  _id: false,
+})
+export class RunStages {
+  @Prop({
+    type: RunCountersSchema,
+    default: () => ({}),
+  })
+  locations: RunCounters;
+
+  @Prop({
+    type: RunCountersSchema,
+    default: () => ({}),
+  })
+  restaurants: RunCounters;
+
+  @Prop({
+    type: RunCountersSchema,
+    default: () => ({}),
+  })
+  menus: RunCounters;
+}
+
+export const RunStagesSchema =
+  SchemaFactory.createForClass(
+    RunStages,
+  );
+
+// ============================================
+// RUN
+// ============================================
 
 @Schema({
   timestamps: true,
@@ -41,23 +122,19 @@ export class Run {
   })
   provider: string;
 
+  // Overall counters
   @Prop({
-    type: Object,
-    default: {
-      read: 0,
-      transformed: 0,
-      written: 0,
-      skipped: 0,
-      failed: 0,
-    },
+    type: RunCountersSchema,
+    default: () => ({}),
   })
-  counters: {
-    read: number;
-    transformed: number;
-    written: number;
-    skipped: number;
-    failed: number;
-  };
+  counters: RunCounters;
+
+  // Per-stage counters
+  @Prop({
+    type: RunStagesSchema,
+    default: () => ({}),
+  })
+  stages: RunStages;
 
   @Prop({
     default: 0,
@@ -90,4 +167,7 @@ export class Run {
   lastError?: string;
 }
 
-export const RunSchema = SchemaFactory.createForClass(Run);
+export const RunSchema =
+  SchemaFactory.createForClass(
+    Run,
+  );

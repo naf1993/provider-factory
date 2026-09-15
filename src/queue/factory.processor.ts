@@ -1,4 +1,4 @@
-
+// src/queue/factory.processor.ts
 
 import {
   Logger,
@@ -80,7 +80,7 @@ import { dedupeByKey } from '../core/uitls/dedupe.js';
 @Processor(
   FACTORY_QUEUE,
   {
-     concurrency:
+    concurrency:
       FACTORY_CONCURRENCY,
   },
 )
@@ -147,20 +147,17 @@ export class FactoryProcessor
 
     /*
      * TEMPORARY DLQ TEST
-     *
-     * Uncomment only when testing DLQ.
-     * Remove/comment again after testing.
      */
 
-    if (
-      job.name ===
-        FactoryJobName.MENUS &&
-      job.data.batchNumber === 0
-    ) {
-      throw new Error(
-        'Temporary DLQ test failure',
-      );
-    }
+    // if (
+    //   job.name ===
+    //     FactoryJobName.MENUS &&
+    //   job.data.batchNumber === 0
+    // ) {
+    //   throw new Error(
+    //     'Temporary DLQ test failure',
+    //   );
+    // }
 
     let result;
 
@@ -194,13 +191,13 @@ export class FactoryProcessor
         );
     }
 
-  
+
     await this.runs
       .incrementCompletedJobs(
         job.data.runId,
       );
 
-    
+
     await this.finalizeRunIfNeeded(
       job.data.runId,
     );
@@ -235,7 +232,7 @@ export class FactoryProcessor
       .toArray();
   }
 
- 
+
   private async processLocations(
     job:
       Job<FactoryBatchJob>,
@@ -249,9 +246,11 @@ export class FactoryProcessor
       const rawDocument
       of documents
     ) {
+  
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'locations',
           {
             read: 1,
           },
@@ -259,7 +258,6 @@ export class FactoryProcessor
 
       let result;
 
-  
       try {
         result =
           this.talabat
@@ -283,15 +281,17 @@ export class FactoryProcessor
             `${location.provider}:${location.providerLocationId}`,
         );
 
-  
+     
       await this.locations
         .bulkUpsert(
           deduped,
         );
 
+   
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'locations',
           {
             transformed: 1,
 
@@ -301,6 +301,7 @@ export class FactoryProcessor
         );
     }
   }
+
 
   private async processRestaurants(
     job:
@@ -318,6 +319,7 @@ export class FactoryProcessor
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'restaurants',
           {
             read: 1,
           },
@@ -359,6 +361,7 @@ export class FactoryProcessor
             ].join(':'),
         );
 
+  
       await this.restaurants
         .bulkUpsert(
           restaurants,
@@ -373,6 +376,7 @@ export class FactoryProcessor
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'restaurants',
           {
             transformed: 1,
 
@@ -401,6 +405,7 @@ export class FactoryProcessor
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'menus',
           {
             read: 1,
           },
@@ -453,12 +458,7 @@ export class FactoryProcessor
             ].join(':'),
         );
 
-      /*
-       * These are infrastructure/database
-       * operations.
-       *
-       * Do NOT catch these as bad documents.
-       */
+   
       await this.restaurants
         .bulkUpsert(
           restaurants,
@@ -477,6 +477,7 @@ export class FactoryProcessor
       await this.runs
         .incrementCounters(
           job.data.runId,
+          'menus',
           {
             transformed: 1,
 
@@ -503,7 +504,10 @@ export class FactoryProcessor
     const message =
       error instanceof Error
         ? error.message
-        : String(error);
+        : String(
+            error,
+          );
+
 
     await this.quarantine
       .create({
@@ -530,9 +534,12 @@ export class FactoryProcessor
         rawDocument,
       });
 
+
     await this.runs
       .incrementCounters(
         job.data.runId,
+        job.data
+          .sourceCollection,
         {
           skipped: 1,
           failed: 1,
@@ -548,7 +555,6 @@ export class FactoryProcessor
       ].join(' | '),
     );
   }
-
 
   private async finalizeRunIfNeeded(
     runId: string,
@@ -586,7 +592,7 @@ export class FactoryProcessor
       Date.now() -
       startedAt;
 
-
+ 
     if (
       run.failedJobs > 0
     ) {
@@ -608,7 +614,7 @@ export class FactoryProcessor
       return;
     }
 
-
+    
     await this.runs
       .markCompleted(
         runId,
@@ -696,6 +702,7 @@ export class FactoryProcessor
       },
     );
 
+  
     await this.runs
       .incrementFailedJobs(
         job.data.runId,

@@ -1,4 +1,4 @@
-// src/domain/runs/run.repository.ts
+
 
 import {
   Injectable,
@@ -21,6 +21,19 @@ import {
   RunDocument,
   RunStatus,
 } from './run.schema.js';
+
+export type RunStage =
+  | 'locations'
+  | 'restaurants'
+  | 'menus';
+
+export interface CounterIncrement {
+  read?: number;
+  transformed?: number;
+  written?: number;
+  skipped?: number;
+  failed?: number;
+}
 
 @Injectable()
 export class RunRepository {
@@ -66,30 +79,59 @@ export class RunRepository {
     );
   }
 
- async markCompleted(
-  runId: string,
-  durationMs: number,
-) {
-  return this.model.updateOne(
-    {
-      runId,
-    },
-    {
-      $set: {
-        status:
-          RunStatus.COMPLETED,
 
-        currentStage:
-          'completed',
-
-        completedAt:
-          new Date(),
-
-        durationMs,
+  async markCompleted(
+    runId: string,
+    durationMs: number,
+  ) {
+    return this.model.updateOne(
+      {
+        runId,
       },
-    },
-  );
-}
+      {
+        $set: {
+          status:
+            RunStatus.COMPLETED,
+
+          currentStage:
+            'completed',
+
+          completedAt:
+            new Date(),
+
+          durationMs,
+        },
+      },
+    );
+  }
+
+
+  async markCompletedWithErrors(
+    runId: string,
+    durationMs: number,
+  ) {
+    return this.model.updateOne(
+      {
+        runId,
+      },
+      {
+        $set: {
+          status:
+            RunStatus
+              .COMPLETED_WITH_ERRORS,
+
+          currentStage:
+            'completed',
+
+          completedAt:
+            new Date(),
+
+          durationMs,
+        },
+      },
+    );
+  }
+
 
   async markFailed(
     runId: string,
@@ -114,51 +156,96 @@ export class RunRepository {
     );
   }
 
+
   async incrementCounters(
     runId: string,
-    counters: {
-      read?: number;
-      transformed?: number;
-      written?: number;
-      skipped?: number;
-      failed?: number;
-    },
+
+    stage:
+      RunStage,
+
+    counters:
+      CounterIncrement,
   ) {
     const increment:
-      Record<string, number> = {};
+      Record<string, number> =
+      {};
 
-    if (counters.read) {
-      increment[
-        'counters.read'
-      ] = counters.read;
-    }
 
     if (
-      counters.transformed
+      counters.read !==
+      undefined
+    ) {
+      increment[
+        'counters.read'
+      ] =
+        counters.read;
+
+      increment[
+        `stages.${stage}.read`
+      ] =
+        counters.read;
+    }
+
+    
+    if (
+      counters.transformed !==
+      undefined
     ) {
       increment[
         'counters.transformed'
       ] =
         counters.transformed;
+
+      increment[
+        `stages.${stage}.transformed`
+      ] =
+        counters.transformed;
     }
 
-    if (counters.written) {
+
+    if (
+      counters.written !==
+      undefined
+    ) {
       increment[
         'counters.written'
       ] =
         counters.written;
+
+      increment[
+        `stages.${stage}.written`
+      ] =
+        counters.written;
     }
 
-    if (counters.skipped) {
+
+    if (
+      counters.skipped !==
+      undefined
+    ) {
       increment[
         'counters.skipped'
       ] =
         counters.skipped;
+
+      increment[
+        `stages.${stage}.skipped`
+      ] =
+        counters.skipped;
     }
 
-    if (counters.failed) {
+    
+    if (
+      counters.failed !==
+      undefined
+    ) {
       increment[
         'counters.failed'
+      ] =
+        counters.failed;
+
+      increment[
+        `stages.${stage}.failed`
       ] =
         counters.failed;
     }
@@ -171,16 +258,18 @@ export class RunRepository {
       return;
     }
 
-    return this.model.updateOne(
-      {
-        runId,
-      },
-      {
-        $inc:
-          increment,
-      },
-    );
+    return this.model
+      .updateOne(
+        {
+          runId,
+        },
+        {
+          $inc:
+            increment,
+        },
+      );
   }
+
 
   async setStage(
     runId: string,
@@ -199,6 +288,7 @@ export class RunRepository {
     );
   }
 
+
   async findByRunId(
     runId: string,
   ) {
@@ -211,87 +301,57 @@ export class RunRepository {
 
 
   async setExpectedJobs(
-  runId: string,
-  expectedJobs: number,
-) {
-  return this.model.updateOne(
-    {
-      runId,
-    },
-    {
-      $set: {
-        expectedJobs,
+    runId: string,
+    expectedJobs: number,
+  ) {
+    return this.model.updateOne(
+      {
+        runId,
       },
-    },
-  );
-}
-
-
-async incrementCompletedJobs(
-  runId: string,
-) {
-  return this.model.findOneAndUpdate(
-    {
-      runId,
-    },
-    {
-      $inc: {
-        completedJobs: 1,
+      {
+        $set: {
+          expectedJobs,
+        },
       },
-    },
-    {
-      new: true,
-    },
-  );
-}
+    );
+  }
 
 
-async incrementFailedJobs(
-  runId: string,
-) {
-  return this.model.findOneAndUpdate(
-    {
-      runId,
-    },
-    {
-      $inc: {
-        failedJobs: 1,
-      },
-    },
-    {
-      new: true,
-    },
-  );
-}
+  async incrementCompletedJobs(
+    runId: string,
+  ) {
+    return this.model
+      .findOneAndUpdate(
+        {
+          runId,
+        },
+        {
+          $inc: {
+            completedJobs: 1,
+          },
+        },
+        {
+          new: true,
+        },
+      );
+  }
 
-
-async markCompletedWithErrors(
-  runId: string,
-  durationMs: number,
-) {
-  return this.model.updateOne(
-    {
-      runId,
-    },
-    {
-      $set: {
-        status:
-          RunStatus
-            .COMPLETED_WITH_ERRORS,
-
-        currentStage:
-          'completed',
-
-        completedAt:
-          new Date(),
-
-        durationMs,
-      },
-    },
-  );
-}
-
-
-
-
+  async incrementFailedJobs(
+    runId: string,
+  ) {
+    return this.model
+      .findOneAndUpdate(
+        {
+          runId,
+        },
+        {
+          $inc: {
+            failedJobs: 1,
+          },
+        },
+        {
+          new: true,
+        },
+      );
+  }
 }
