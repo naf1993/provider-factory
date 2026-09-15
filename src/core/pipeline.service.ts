@@ -34,7 +34,7 @@ import { QuarantineRepository } from '../domain/quarantine/quarantine.repository
 
 import { RunRepository } from '../domain/runs/run.repository.js';
 
-import { dedupeByKey } from './uitls/dedupe.js';
+import { dedupeByKey } from './utils/dedupe.js';
 
 @Injectable()
 export class PipelineService {
@@ -75,9 +75,6 @@ export class PipelineService {
       RunRepository,
   ) {}
 
-  // ============================================
-  // LOCATIONS
-  // ============================================
 
   async processLocations(
     runId: string,
@@ -105,6 +102,7 @@ export class PipelineService {
       await this.runs
         .incrementCounters(
           runId,
+          'locations',
           {
             read: 1,
           },
@@ -135,8 +133,11 @@ export class PipelineService {
         await this.runs
           .incrementCounters(
             runId,
+            'locations',
             {
-              transformed: 1,
+              transformed:
+                1,
+
               written:
                 deduped.length,
             },
@@ -173,8 +174,26 @@ export class PipelineService {
           });
 
         await this.runs
+  .addSampleError(
+    runId,
+    {
+      stage:
+        'locations',
+
+      sourceDocumentId:
+        rawDocument._id
+          ?.toString(),
+
+      message,
+    },
+  );
+
+        
+
+        await this.runs
           .incrementCounters(
             runId,
+            'locations',
             {
               skipped: 1,
               failed: 1,
@@ -182,7 +201,12 @@ export class PipelineService {
           );
 
         this.logger.warn(
-          `Location document quarantined: ${message}`,
+          [
+            `Run ${runId}`,
+            'Stage locations',
+            `Source ${rawDocument._id}`,
+            message,
+          ].join(' | '),
         );
       }
     }
@@ -193,10 +217,6 @@ export class PipelineService {
       failedCount,
     };
   }
-
-  // ============================================
-  // RESTAURANTS
-  // ============================================
 
   async processRestaurants(
     runId: string,
@@ -225,6 +245,7 @@ export class PipelineService {
       await this.runs
         .incrementCounters(
           runId,
+          'restaurants',
           {
             read: 1,
           },
@@ -275,8 +296,10 @@ export class PipelineService {
         await this.runs
           .incrementCounters(
             runId,
+            'restaurants',
             {
-              transformed: 1,
+              transformed:
+                1,
 
               written:
                 restaurants.length +
@@ -315,8 +338,24 @@ export class PipelineService {
           });
 
         await this.runs
+  .addSampleError(
+    runId,
+    {
+      stage:
+        'locations',
+
+      sourceDocumentId:
+        rawDocument._id
+          ?.toString(),
+
+      message,
+    },
+  );
+
+        await this.runs
           .incrementCounters(
             runId,
+            'restaurants',
             {
               skipped: 1,
               failed: 1,
@@ -324,7 +363,12 @@ export class PipelineService {
           );
 
         this.logger.warn(
-          `Restaurant document quarantined: ${message}`,
+          [
+            `Run ${runId}`,
+            'Stage restaurants',
+            `Source ${rawDocument._id}`,
+            message,
+          ].join(' | '),
         );
       }
     }
@@ -336,10 +380,6 @@ export class PipelineService {
       failedCount,
     };
   }
-
-  // ============================================
-  // MENUS
-  // ============================================
 
   async processMenus(
     runId: string,
@@ -369,6 +409,7 @@ export class PipelineService {
       await this.runs
         .incrementCounters(
           runId,
+          'menus',
           {
             read: 1,
           },
@@ -437,8 +478,10 @@ export class PipelineService {
         await this.runs
           .incrementCounters(
             runId,
+            'menus',
             {
-              transformed: 1,
+              transformed:
+                1,
 
               written:
                 restaurants.length +
@@ -478,8 +521,26 @@ export class PipelineService {
           });
 
         await this.runs
+  .addSampleError(
+    runId,
+    {
+      stage:
+        'menus',
+
+      sourceDocumentId:
+        rawDocument._id
+          ?.toString(),
+
+      message,
+    },
+  );
+
+        
+
+        await this.runs
           .incrementCounters(
             runId,
+            'menus',
             {
               skipped: 1,
               failed: 1,
@@ -487,7 +548,12 @@ export class PipelineService {
           );
 
         this.logger.warn(
-          `Menu document quarantined: ${message}`,
+          [
+            `Run ${runId}`,
+            'Stage menus',
+            `Source ${rawDocument._id}`,
+            message,
+          ].join(' | '),
         );
       }
     }
@@ -501,9 +567,6 @@ export class PipelineService {
     };
   }
 
-  // ============================================
-  // COMPLETE RUN
-  // ============================================
 
   async processAll() {
     const runId =
@@ -512,9 +575,10 @@ export class PipelineService {
     const startedAt =
       Date.now();
 
-    await this.runs.create(
-      runId,
-    );
+    await this.runs
+      .create(
+        runId,
+      );
 
     await this.runs
       .markRunning(
@@ -522,10 +586,6 @@ export class PipelineService {
       );
 
     try {
-      // --------------------
-      // LOCATIONS
-      // --------------------
-
       await this.runs
         .setStage(
           runId,
@@ -533,13 +593,10 @@ export class PipelineService {
         );
 
       const locations =
-        await this.processLocations(
-          runId,
-        );
-
-      // --------------------
-      // RESTAURANTS
-      // --------------------
+        await this
+          .processLocations(
+            runId,
+          );
 
       await this.runs
         .setStage(
@@ -548,13 +605,10 @@ export class PipelineService {
         );
 
       const restaurants =
-        await this.processRestaurants(
-          runId,
-        );
-
-      // --------------------
-      // MENUS
-      // --------------------
+        await this
+          .processRestaurants(
+            runId,
+          );
 
       await this.runs
         .setStage(
@@ -563,9 +617,10 @@ export class PipelineService {
         );
 
       const menus =
-        await this.processMenus(
-          runId,
-        );
+        await this
+          .processMenus(
+            runId,
+          );
 
       const durationMs =
         Date.now() -
@@ -604,7 +659,11 @@ export class PipelineService {
         );
 
       this.logger.error(
-        `Run ${runId} failed: ${message}`,
+        [
+          `Run ${runId}`,
+          'failed',
+          message,
+        ].join(' | '),
       );
 
       throw error;

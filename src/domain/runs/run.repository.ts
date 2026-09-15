@@ -1,31 +1,14 @@
+import { Injectable } from '@nestjs/common';
 
+import { InjectModel } from '@nestjs/mongoose';
 
-import {
-  Injectable,
-} from '@nestjs/common';
+import type { Model } from 'mongoose';
 
-import {
-  InjectModel,
-} from '@nestjs/mongoose';
+import { DOMAIN_DB_CONNECTION } from '../../database/database.module.js';
 
-import type {
-  Model,
-} from 'mongoose';
+import { Run, RunDocument, RunStatus } from './run.schema.js';
 
-import {
-  DOMAIN_DB_CONNECTION,
-} from '../../database/database.module.js';
-
-import {
-  Run,
-  RunDocument,
-  RunStatus,
-} from './run.schema.js';
-
-export type RunStage =
-  | 'locations'
-  | 'restaurants'
-  | 'menus';
+export type RunStage = 'locations' | 'restaurants' | 'menus';
 
 export interface CounterIncrement {
   read?: number;
@@ -35,69 +18,56 @@ export interface CounterIncrement {
   failed?: number;
 }
 
+export interface RunSampleErrorInput {
+  stage: string;
+  sourceDocumentId?: string;
+  message: string;
+}
+
 @Injectable()
 export class RunRepository {
   constructor(
-    @InjectModel(
-      Run.name,
-      DOMAIN_DB_CONNECTION,
-    )
-    private readonly model:
-      Model<RunDocument>,
+    @InjectModel(Run.name, DOMAIN_DB_CONNECTION)
+    private readonly model: Model<RunDocument>,
   ) {}
 
-  async create(
-    runId: string,
-  ) {
+  async create(runId: string) {
     return this.model.create({
       runId,
 
-      provider:
-        'talabat',
+      provider: 'talabat',
 
-      status:
-        RunStatus.PENDING,
+      status: RunStatus.PENDING,
     });
   }
 
-  async markRunning(
-    runId: string,
-  ) {
+  async markRunning(runId: string) {
     return this.model.updateOne(
       {
         runId,
       },
       {
         $set: {
-          status:
-            RunStatus.RUNNING,
+          status: RunStatus.RUNNING,
 
-          startedAt:
-            new Date(),
+          startedAt: new Date(),
         },
       },
     );
   }
 
-
-  async markCompleted(
-    runId: string,
-    durationMs: number,
-  ) {
+  async markCompleted(runId: string, durationMs: number) {
     return this.model.updateOne(
       {
         runId,
       },
       {
         $set: {
-          status:
-            RunStatus.COMPLETED,
+          status: RunStatus.COMPLETED,
 
-          currentStage:
-            'completed',
+          currentStage: 'completed',
 
-          completedAt:
-            new Date(),
+          completedAt: new Date(),
 
           durationMs,
         },
@@ -105,26 +75,18 @@ export class RunRepository {
     );
   }
 
-
-  async markCompletedWithErrors(
-    runId: string,
-    durationMs: number,
-  ) {
+  async markCompletedWithErrors(runId: string, durationMs: number) {
     return this.model.updateOne(
       {
         runId,
       },
       {
         $set: {
-          status:
-            RunStatus
-              .COMPLETED_WITH_ERRORS,
+          status: RunStatus.COMPLETED_WITH_ERRORS,
 
-          currentStage:
-            'completed',
+          currentStage: 'completed',
 
-          completedAt:
-            new Date(),
+          completedAt: new Date(),
 
           durationMs,
         },
@@ -132,166 +94,90 @@ export class RunRepository {
     );
   }
 
-
-  async markFailed(
-    runId: string,
-    error: string,
-  ) {
+  async markFailed(runId: string, error: string) {
     return this.model.updateOne(
       {
         runId,
       },
       {
         $set: {
-          status:
-            RunStatus.FAILED,
+          status: RunStatus.FAILED,
 
-          completedAt:
-            new Date(),
+          completedAt: new Date(),
 
-          lastError:
-            error,
+          lastError: error,
         },
       },
     );
   }
-
 
   async incrementCounters(
     runId: string,
 
-    stage:
-      RunStage,
+    stage: RunStage,
 
-    counters:
-      CounterIncrement,
+    counters: CounterIncrement,
   ) {
-    const increment:
-      Record<string, number> =
-      {};
+    const increment: Record<string, number> = {};
 
+    if (counters.read !== undefined) {
+      increment['counters.read'] = counters.read;
 
-    if (
-      counters.read !==
-      undefined
-    ) {
-      increment[
-        'counters.read'
-      ] =
-        counters.read;
-
-      increment[
-        `stages.${stage}.read`
-      ] =
-        counters.read;
+      increment[`stages.${stage}.read`] = counters.read;
     }
 
-    
-    if (
-      counters.transformed !==
-      undefined
-    ) {
-      increment[
-        'counters.transformed'
-      ] =
-        counters.transformed;
+    if (counters.transformed !== undefined) {
+      increment['counters.transformed'] = counters.transformed;
 
-      increment[
-        `stages.${stage}.transformed`
-      ] =
-        counters.transformed;
+      increment[`stages.${stage}.transformed`] = counters.transformed;
     }
 
+    if (counters.written !== undefined) {
+      increment['counters.written'] = counters.written;
 
-    if (
-      counters.written !==
-      undefined
-    ) {
-      increment[
-        'counters.written'
-      ] =
-        counters.written;
-
-      increment[
-        `stages.${stage}.written`
-      ] =
-        counters.written;
+      increment[`stages.${stage}.written`] = counters.written;
     }
 
+    if (counters.skipped !== undefined) {
+      increment['counters.skipped'] = counters.skipped;
 
-    if (
-      counters.skipped !==
-      undefined
-    ) {
-      increment[
-        'counters.skipped'
-      ] =
-        counters.skipped;
-
-      increment[
-        `stages.${stage}.skipped`
-      ] =
-        counters.skipped;
+      increment[`stages.${stage}.skipped`] = counters.skipped;
     }
 
-    
-    if (
-      counters.failed !==
-      undefined
-    ) {
-      increment[
-        'counters.failed'
-      ] =
-        counters.failed;
+    if (counters.failed !== undefined) {
+      increment['counters.failed'] = counters.failed;
 
-      increment[
-        `stages.${stage}.failed`
-      ] =
-        counters.failed;
+      increment[`stages.${stage}.failed`] = counters.failed;
     }
 
-    if (
-      Object.keys(
-        increment,
-      ).length === 0
-    ) {
+    if (Object.keys(increment).length === 0) {
       return;
     }
 
-    return this.model
-      .updateOne(
-        {
-          runId,
-        },
-        {
-          $inc:
-            increment,
-        },
-      );
+    return this.model.updateOne(
+      {
+        runId,
+      },
+      {
+        $inc: increment,
+      },
+    );
   }
 
-
-  async setStage(
-    runId: string,
-    stage: string,
-  ) {
+  async setStage(runId: string, stage: string) {
     return this.model.updateOne(
       {
         runId,
       },
       {
         $set: {
-          currentStage:
-            stage,
+          currentStage: stage,
         },
       },
     );
   }
 
-
-  async findByRunId(
-    runId: string,
-  ) {
+  async findByRunId(runId: string) {
     return this.model
       .findOne({
         runId,
@@ -299,11 +185,7 @@ export class RunRepository {
       .lean();
   }
 
-
-  async setExpectedJobs(
-    runId: string,
-    expectedJobs: number,
-  ) {
+  async setExpectedJobs(runId: string, expectedJobs: number) {
     return this.model.updateOne(
       {
         runId,
@@ -316,42 +198,62 @@ export class RunRepository {
     );
   }
 
-
-  async incrementCompletedJobs(
-    runId: string,
-  ) {
-    return this.model
-      .findOneAndUpdate(
-        {
-          runId,
+  async incrementCompletedJobs(runId: string) {
+    return this.model.findOneAndUpdate(
+      {
+        runId,
+      },
+      {
+        $inc: {
+          completedJobs: 1,
         },
-        {
-          $inc: {
-            completedJobs: 1,
-          },
-        },
-        {
-          new: true,
-        },
-      );
+      },
+      {
+        new: true,
+      },
+    );
   }
 
-  async incrementFailedJobs(
-    runId: string,
-  ) {
-    return this.model
-      .findOneAndUpdate(
-        {
-          runId,
+  async incrementFailedJobs(runId: string) {
+    return this.model.findOneAndUpdate(
+      {
+        runId,
+      },
+      {
+        $inc: {
+          failedJobs: 1,
         },
-        {
-          $inc: {
-            failedJobs: 1,
+      },
+      {
+        new: true,
+      },
+    );
+  }
+
+  async addSampleError(runId: string, error: RunSampleErrorInput) {
+    return this.model.updateOne(
+      {
+        runId,
+      },
+      {
+        $push: {
+          sampleErrors: {
+            $each: [
+              {
+                stage: error.stage,
+
+                sourceDocumentId: error.sourceDocumentId,
+
+                message: error.message,
+
+                createdAt: new Date(),
+              },
+            ],
+
+            $slice: 10,
           },
         },
-        {
-          new: true,
-        },
-      );
+      },
+    );
   }
 }

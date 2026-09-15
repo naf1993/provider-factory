@@ -1,30 +1,18 @@
 // src/domain/runs/run.schema.ts
 
-import {
-  Prop,
-  Schema,
-  SchemaFactory,
-} from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 
-import type {
-  HydratedDocument,
-} from 'mongoose';
+import type { HydratedDocument } from 'mongoose';
 
-export type RunDocument =
-  HydratedDocument<Run>;
+export type RunDocument = HydratedDocument<Run>;
 
 export enum RunStatus {
   PENDING = 'PENDING',
   RUNNING = 'RUNNING',
   COMPLETED = 'COMPLETED',
-  COMPLETED_WITH_ERRORS =
-    'COMPLETED_WITH_ERRORS',
+  COMPLETED_WITH_ERRORS = 'COMPLETED_WITH_ERRORS',
   FAILED = 'FAILED',
 }
-
-// ============================================
-// COUNTERS
-// ============================================
 
 @Schema({
   _id: false,
@@ -56,10 +44,7 @@ export class RunCounters {
   failed: number;
 }
 
-export const RunCountersSchema =
-  SchemaFactory.createForClass(
-    RunCounters,
-  );
+export const RunCountersSchema = SchemaFactory.createForClass(RunCounters);
 
 // ============================================
 // PER-STAGE COUNTERS
@@ -88,14 +73,33 @@ export class RunStages {
   menus: RunCounters;
 }
 
-export const RunStagesSchema =
-  SchemaFactory.createForClass(
-    RunStages,
-  );
+export const RunStagesSchema = SchemaFactory.createForClass(RunStages);
 
-// ============================================
-// RUN
-// ============================================
+@Schema({
+  _id: false,
+})
+export class RunSampleError {
+  @Prop({
+    required: true,
+  })
+  stage: string;
+
+  @Prop()
+  sourceDocumentId?: string;
+
+  @Prop({
+    required: true,
+  })
+  message: string;
+
+  @Prop({
+    required: true,
+  })
+  createdAt: Date;
+}
+
+export const RunSampleErrorSchema =
+  SchemaFactory.createForClass(RunSampleError);
 
 @Schema({
   timestamps: true,
@@ -165,9 +169,16 @@ export class Run {
 
   @Prop()
   lastError?: string;
+
+  @Prop({
+  type: [
+    RunSampleErrorSchema,
+  ],
+  default: [],
+})
+sampleErrors:
+  RunSampleError[];
+
 }
 
-export const RunSchema =
-  SchemaFactory.createForClass(
-    Run,
-  );
+export const RunSchema = SchemaFactory.createForClass(Run);
